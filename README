@@ -16,6 +16,17 @@ options:
 
  -f --fixup    fix files by replacing tabs and removing trailing whitespace
  -t --tabsize  set the tab length (default: 8 or checkfiles.tab_size)
-    --mq       operate on patch repository
 
 use "hg -v help checkfiles" to show global options
+
+== rebaseif ==
+
+hg rebaseif
+
+rebases if there are no file conflicts and merges otherwise.
+
+    See each command's documentation for details.
+
+options:
+
+use "hg -v help rebaseif" to show global options
