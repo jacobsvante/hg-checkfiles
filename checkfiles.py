@@ -33,7 +33,7 @@ checks changed files in the working directory for tabs or trailing whitespace
 options:
 
  -f --fixup          fix files by replacing tabs and removing trailing whitespace
- -t --tabsize VALUE  set the tab length (default: 8 or checkfiles.tab_size) (default: 4)
+ -t --tabsize VALUE  set the tab length (default: 4)
 
 
 == Example usage ==
