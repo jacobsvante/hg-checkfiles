@@ -1,5 +1,5 @@
-# Copyright Marcus Lindblom 2010
-# License: GPL 2.0+
+# Copyright: Marcus Lindblom 2010
+# License: GPLv2+
 #
 # This extension adds a command 'rebaseif' that rebases if there are no conflicts and merges otherwise.
 # The reason for doing so is that a badly resolved conflict is easier to detect and fix afterwards

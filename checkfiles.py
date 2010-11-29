@@ -1,5 +1,5 @@
-# Copyright Marcus Lindblom 2010
-# License: GPL 2.0+
+# Copyright: Marcus Lindblom 2010
+# License: GPLv2+
 #
 # This extension adds a pretxncommit hook that checks files for tabs or trailing whitespace and fails if so
 #
