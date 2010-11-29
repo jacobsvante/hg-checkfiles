@@ -52,6 +52,8 @@ ignored_files = foo/contains_tabs.txt bar/contains_trailing_ws.txt
 tab_size = 4
 '''
 
+from mercurial.i18n import _
+
 class CheckFiles(object):
     def __init__(self, ui, repo, ctx):
         self.ctx = ctx
@@ -180,6 +182,7 @@ def check_hook(ui, repo, hooktype, node, **kwargs):
 
         return fail
     else:
+        from mercurial import util
         raise util.Abort(_('checkfiles: check_hook installed as unsupported hooktype: %s') %
                            hooktype)
 
