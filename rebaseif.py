@@ -1,11 +1,16 @@
 # Copyright: Marcus Lindblom 2010
 # License: GPLv2+
 #
-# This extension adds a command 'rebaseif' that rebases if there are no conflicts and merges otherwise.
-# The reason for doing so is that a badly resolved conflict is easier to detect and fix afterwards
-# if it was merges, since the conflict resolution is explicit in a separate commit, rather than mashed
-# up with others as in the rebase case
-#
+'''command that perform rebase or merge depending on the existance of merge conflicts
+
+Provides the 'rebaseif' command that rebases if there are no conflicts and merges otherwise.
+The reason for doing so is that a badly resolved conflict is easier to detect and fix afterwards
+if it was merges, since the conflict resolution is explicit in a separate commit, rather than mashed
+up with others as in the rebase case
+
+Also adds a --rebaseif option to pull, similar to --rebase.
+'''
+
 # See http://stackoverflow.com/questions/4086724/how-do-i-check-for-potential-merge-rebase-conflicts-in-mercurial
 # for some discussion on the matter
 
@@ -26,30 +31,31 @@ def rebaseif(ui, repo, **opts):
 
     try:
         hgext.rebase.rebase(ui, repo)
-        ui.status("rebaseif: successful rebase")
+        ui.status(_('rebaseif: successful rebase'))
         return 0
     except:
         hgext.rebase.rebase(ui, repo, abort=True)
     finally:
         ui.setconfig('ui', 'merge', origmerge)
 
-    ui.status("rebaseif: failed to rebase, attempting merge")
+    ui.status(_('rebaseif: failed to rebase, attempting merge'))
 
     import mercurial.commands
     mercurial.commands.merge(ui, repo)
 
     return 0
 
-# taken almost in verbatim from rebase extension
+
+##############################################################################################
 
 def pullrebaseif(orig, ui, repo, *args, **opts):
-    'Call rebaseif after pull if the latter has been invoked with --rebaseif'
+    '''Call rebaseif after pull if the latter has been invoked with --rebaseif'''
+    # this function is taken in verbatim from rebase extension, with rebase replaced with rebaseif
 
     if opts.get('rebaseif'):
         if opts.get('update'):
             del opts['update']
-            ui.debug('--update and --rebase are not compatible, ignoring '
-                     'the update flag\n')
+            ui.debug(_('--update and --rebaseif are not compatible, ignoring the update flag\n'))
 
         cmdutil.bail_if_changed(repo)
         revsprepull = len(repo)
@@ -72,12 +78,17 @@ def pullrebaseif(orig, ui, repo, *args, **opts):
     else:
         orig(ui, repo, *args, **opts)
 
+##############################################################################################
+
 def uisetup(ui):
-    'Replace pull with a decorator to provide --rebaseif option'
+    '''Replaces pull with a decorator to provide --rebaseif option'''
+
     entry = extensions.wrapcommand(commands.table, 'pull', pullrebaseif)
     entry[1].append(('', 'rebaseif', None,
-                     _("rebase or merge working directory to branch head"))
+                     _('rebase or merge working directory to branch head'))
 )
+
+##############################################################################################
 
 cmdtable = {
     # 'command-name': (function-call, options-list, help-string)
