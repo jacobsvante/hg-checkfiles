@@ -128,6 +128,8 @@ class CheckFiles(object):
                 # XXX would be nicer if checked_exts were a proper pattern;
                 # then cmdutil.match would work naturally with it
                 file = None
+                hunk = None
+                lastlabel = None
                 for chunk, label in patch.diffui(self.repo,
                                                  self.ctx.p1().node(),
                                                  self.ctx.node(),
@@ -140,14 +142,15 @@ class CheckFiles(object):
                             self.ui.debug('checkfiles: checking %s ...\n' % file)
                         else:
                             file = None
-                    elif file and label == 'diff.trailingwhitespace':
+                    elif label == 'diff.hunk':
+                        hunk = chunk
+                    elif file and label == 'diff.trailingwhitespace' and lastlabel == 'diff.inserted':
                         state.found_ws()
-                        # XXX show line number
-                        self.ui.note('%s: trailing whitespace\n' % file)
+                        self.ui.note('%s: trailing whitespace in %s\n' % (file, hunk))
                     elif file and label == 'diff.inserted' and '\t' in chunk:
                         state.found_tab()
-                        # XXX show line number
-                        self.ui.note('%s: tab character(s)\n' % file)
+                        self.ui.note('%s: tab character(s) in %s\n' % (file, hunk))
+                    lastlabel = label
                 state.endfile(file)
             else:
                 self.ui.note('checkfiles: skipping merge changeset\n')
