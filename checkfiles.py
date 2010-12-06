@@ -47,6 +47,7 @@ pretxncommit.checkfiles = python:/path/to/checkfiles.py:check_hook
 pre-commit.checkfiles = python:/path/to/checkfiles.py:fixup_hook
 
 [checkfiles]
+# default is any text file
 checked_exts = .c .h .cpp .xml .cs .html .js .css .txt .py .nsi .java .aspx .asp .bat .cmd .glsl
 ignored_files = foo/contains_tabs.txt bar/contains_trailing_ws.txt
 tab_size = 4
@@ -61,7 +62,7 @@ class CheckFiles(object):
         self.repo = repo
 
         self.checked_exts = ui.configlist('checkfiles', 'checked_exts',
-            default='.c .h .cpp .xml .cs .html .js .css .txt .py .nsi .java .aspx .asp .bat .cmd .glsl')
+            default='""')
         self.ignored_files = ui.configlist('checkfiles', 'ignored_files')
         self.tab_size = int(ui.config('checkfiles', 'tab_size', default='4'))
 
