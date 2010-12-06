@@ -51,9 +51,13 @@ precommit.checkfiles = python:/path/to/checkfiles.py:fixup_hook
 checked_exts = .c .h .cpp .xml .cs .html .js .css .txt .py .nsi .java .aspx .asp .bat .cmd .glsl
 ignored_files = foo/contains_tabs.txt bar/contains_trailing_ws.txt
 tab_size = 4
+# to examine only modified lines from check_hook (no effect on fixup_hook or command), use:
+# check_diffs = True
 '''
 
 from mercurial.i18n import _
+from mercurial import cmdutil, patch
+import re
 
 class CheckFiles(object):
     def __init__(self, ui, repo, ctx):
@@ -64,6 +68,7 @@ class CheckFiles(object):
         self.checked_exts = ui.configlist('checkfiles', 'checked_exts',
             default='""')
         self.ignored_files = ui.configlist('checkfiles', 'ignored_files')
+        self.check_diffs = ui.configbool('checkfiles', 'check_diffs')
         self.tab_size = int(ui.config('checkfiles', 'tab_size', default='4'))
 
         self.ui.debug('checkfiles: checked extensions: %s\n' % ' '.join(self.checked_exts))
@@ -91,55 +96,97 @@ class CheckFiles(object):
         return True
 
     def check(self):
-        filecount = 0
-        probcount = 0
         tab_indicator = '^' * self.tab_size
+        class State:
+            def __init__(self, ui):
+                self.ui = ui
+                self.tab = False
+                self.ws = False
+                self.filecount = 0
+                self.probcount = 0
+            def endfile(self, file):
+                if file is None:
+                    return
+                if self.tab or self.ws:
+                    self.filecount += 1
+                    self.ui.status('checkfiles: %s: %s%s\n' %
+                        (file, 'tabs ' if self.tab else '', 'whitespace' if self.ws else ''))
+                    self.tab = False
+                    self.ws = False
+                else:
+                    self.ui.note('checkfiles: %s: ok\n' % file)
+            def found_ws(self):
+                self.ws = True
+                self.probcount += 1
+            def found_tab(self):
+                self.tab = True
+                self.probcount += 1
+        state = State(self.ui)
 
-        for file in filter(self.is_relevant, self.ctx.files()):
-            self.ui.debug('checkfiles: checking %s ...\n' % file)
-            fctx = self.ctx[file]
-            tab = False
-            ws = False
-
-            for num, line in enumerate(fctx.data().splitlines(), 1):
-                if line.isspace():
-                    ws = True
-                    probcount += 1
-                    self.ui.note('%s (%i): all whitespace\n' % (file, num))
-
-                elif line.endswith((' ', '\t')):
-                    ws = True
-                    probcount += 1
-                    self.ui.note('%s (%i): trailing whitespace\n' % (file, num))
-
-                    line = line.expandtabs(self.tab_size)
-                    non_ws_len = len(line.rstrip())
-                    line_show = ' ' * non_ws_len + '^' * (len(line) - non_ws_len)
-                    self.ui.note('  %s\n  %s\n' % (line, line_show))
-
-                elif '\t' in line:
-                    tab = True
-                    probcount += 1
-                    self.ui.note('%s (%i): tab character(s)\n' % (file, num))
-
-                    line_show = ''.join(tab_indicator if c == '\t' else ' ' for c in line)
-                    line = line.expandtabs(self.tab_size)
-                    self.ui.note('  %s\n  %s\n' % (line, line_show))
-
-            if tab or ws:
-                filecount += 1
-                self.ui.status('checkfiles: %s: %s%s\n' %
-                    (file, 'tabs ' if tab else '', 'whitespace' if ws else ''))
+        if self.check_diffs:
+            if len(self.ctx.parents()) == 1:
+                # XXX would be nicer if checked_exts were a proper pattern;
+                # then cmdutil.match would work naturally with it
+                file = None
+                for chunk, label in patch.diffui(self.repo,
+                                                 self.ctx.p1().node(),
+                                                 self.ctx.node(),
+                                                 cmdutil.match(self.repo)):
+                    self.ui.debug('checkfiles: %s="%s"\n' % (label, chunk))
+                    if label == 'diff.file_b':
+                        state.endfile(file)
+                        file = re.sub(r'^[+][+][+] b/(.+)\t.+$', r'\1', chunk)
+                        if self.is_relevant(file):
+                            self.ui.debug('checkfiles: checking %s ...\n' % file)
+                        else:
+                            file = None
+                    elif file and label == 'diff.trailingwhitespace':
+                        state.found_ws()
+                        # XXX show line number
+                        self.ui.note('%s: trailing whitespace\n' % file)
+                    elif file and label == 'diff.inserted' and '\t' in chunk:
+                        state.found_tab()
+                        # XXX show line number
+                        self.ui.note('%s: tab character(s)\n' % file)
+                state.endfile(file)
             else:
-                self.ui.note('checkfiles: %s: ok\n' % file)
+                self.ui.note('checkfiles: skipping merge changeset\n')
+        else:
+            for file in filter(self.is_relevant, self.ctx.files()):
+                self.ui.debug('checkfiles: checking %s ...\n' % file)
+                fctx = self.ctx[file]
 
-        if filecount > 0:
+                for num, line in enumerate(fctx.data().splitlines(), 1):
+                    if line.isspace():
+                        state.found_ws()
+                        self.ui.note('%s (%i): all whitespace\n' % (file, num))
+
+                    elif line.endswith((' ', '\t')):
+                        state.found_ws()
+                        self.ui.note('%s (%i): trailing whitespace\n' % (file, num))
+
+                        line = line.expandtabs(self.tab_size)
+                        non_ws_len = len(line.rstrip())
+                        line_show = ' ' * non_ws_len + '^' * (len(line) - non_ws_len)
+                        self.ui.note('  %s\n  %s\n' % (line, line_show))
+
+                    elif '\t' in line:
+                        state.found_tab()
+                        self.ui.note('%s (%i): tab character(s)\n' % (file, num))
+
+                        line_show = ''.join(tab_indicator if c == '\t' else ' ' for c in line)
+                        line = line.expandtabs(self.tab_size)
+                        self.ui.note('  %s\n  %s\n' % (line, line_show))
+
+                state.endfile(file)
+
+        if state.filecount > 0:
             from mercurial.node import short
             self.ui.warn('checkfiles: %i issues(s) found in %i file(s) in %s\n' %
-                (probcount, filecount,
+                (state.probcount, state.filecount,
                 short(self.ctx.node()) if self.ctx.node() else 'working directory'))
 
-        return filecount > 0
+        return state.filecount > 0
 
     def fixup(self):
         import os.path
