@@ -12,7 +12,7 @@ check_hook: prevents commits containing tabs or trailing whitespace, without act
 
 fixup_hook: automatically fixes any problematic files before commit. Useful in pre-commit.
              (As this hook may changes files on disc, you will need to recompile your
-             project after commiting if any files needed fixing)
+             project after committing if any files needed fixing)
 
              If you're not confortable with this kind of magic, use the check_hook and
              manually run the command with the --fixup option.
