@@ -44,7 +44,7 @@ checkfiles = /path/to/checkfiles.py enable command
 [hooks]
 pretxnchangegroup.checkfiles = python:/path/to/checkfiles.py:check_hook
 pretxncommit.checkfiles = python:/path/to/checkfiles.py:check_hook
-pre-commit.checkfiles = python:/path/to/checkfiles.py:fixup_hook
+precommit.checkfiles = python:/path/to/checkfiles.py:fixup_hook
 
 [checkfiles]
 # default is any text file
