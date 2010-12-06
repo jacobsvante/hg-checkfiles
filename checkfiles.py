@@ -165,14 +165,14 @@ def check_hook(ui, repo, hooktype, node, **kwargs):
     '''blocks commits/changesets containing tabs or trailing whitespace'''
 
     if hooktype == 'pretxncommit':
-        ui.status('checkfiles: checking commit for tabs or trailing whitespace...\n')
+        ui.note('checkfiles: checking commit for tabs or trailing whitespace...\n')
         cf = CheckFiles(ui, repo, repo.changectx(node))
         return cf.check()
 
     elif hooktype == 'pretxnchangegroup':
         from mercurial import cmdutil
 
-        ui.status('checkfiles: checking incoming changes for tabs or trailing whitespace...\n')
+        ui.note('checkfiles: checking incoming changes for tabs or trailing whitespace...\n')
         cf = CheckFiles(ui, repo, None)
         fail = False
 
