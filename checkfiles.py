@@ -3,7 +3,7 @@
 # Copyright: Marcus Lindblom 2010
 # License: GPLv2+
 
-'''detects (and optionally fixes) tabs and trailing whitespace in commited files
+'''detects (and optionally fixes) tabs and trailing whitespace in committed files
 
 == The hooks ==
 
@@ -14,7 +14,7 @@ fixup_hook: automatically fixes any problematic files before commit. Useful in p
              (As this hook may changes files on disc, you will need to recompile your
              project after committing if any files needed fixing)
 
-             If you're not confortable with this kind of magic, use the check_hook and
+             If you're not comfortable with this kind of magic, use the check_hook and
              manually run the command with the --fixup option.
 
 == The command ==
