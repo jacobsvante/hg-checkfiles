@@ -82,6 +82,7 @@ class CheckFiles(object):
 
         self.ui.debug('checkfiles: ignored extensions: %s\n' % ' '.join(self.ignored_exts))
         self.ui.debug('checkfiles: ignored files: %s\n' % ' '.join(self.ignored_files))
+        self.ui.debug('checkfiles: check diffs only: %r\n' % self.check_diffs)
 
     def is_relevant(self, file):
         if file in self.ignored_files:
