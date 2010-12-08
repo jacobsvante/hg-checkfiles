@@ -114,26 +114,31 @@ class CheckFiles(object):
         class State:
             def __init__(self, ui):
                 self.ui = ui
-                self.tab = False
-                self.ws = False
+                self.ws_begin = False
+                self.ws_end = False
+                self.all_ws = False
                 self.filecount = 0
                 self.probcount = 0
             def endfile(self, file):
                 if file is None:
                     return
-                if self.tab or self.ws:
+                if self.ws_begin or self.ws_end or self.all_ws:
                     self.filecount += 1
-                    self.ui.status('checkfiles: %s: %s%s\n' %
-                        (file, 'tabs ' if self.tab else '', 'whitespace' if self.ws else ''))
-                    self.tab = False
-                    self.ws = False
+                    self.ui.status('checkfiles: %s:%s%s%s\n' %
+                        (file, ' whitespace_begin' if self.ws_begin else '', ' whitespace_end' if self.ws_end else '', ' all_whitespace' if self.all_ws else ''))
+                    self.ws_begin = False
+                    self.ws_end = False
+                    self.all_ws = False
                 else:
                     self.ui.note('checkfiles: %s: ok\n' % file)
-            def found_ws(self):
-                self.ws = True
+            def found_all_ws(self):
+                self.all_ws = True
                 self.probcount += 1
-            def found_tab(self):
-                self.tab = True
+            def found_ws_end(self):
+                self.ws_end = True
+                self.probcount += 1
+            def found_ws_begin(self):
+                self.ws_begin = True
                 self.probcount += 1
         state = State(self.ui)
 
@@ -159,10 +164,10 @@ class CheckFiles(object):
                     elif label == 'diff.hunk':
                         hunk = chunk
                     elif file and label == 'diff.trailingwhitespace' and lastlabel == 'diff.inserted' and chunk != '\r':
-                        state.found_ws()
+                        state.found_ws_end()
                         self.ui.note('%s: trailing whitespace in %s\n' % (file, hunk))
                     elif file and label == 'diff.inserted' and '\t' in chunk:
-                        state.found_tab()
+                        state.found_ws_begin()
                         self.ui.note('%s: tab character(s) in %s\n' % (file, hunk))
                     lastlabel = label
                 state.endfile(file)
@@ -175,11 +180,11 @@ class CheckFiles(object):
 
                 for num, line in enumerate(fctx.data().splitlines(), 1):
                     if line.isspace():
-                        state.found_ws()
+                        state.found_all_ws()
                         self.ui.note('%s (%i): all whitespace\n' % (file, num))
 
                     elif line.endswith((' ', '\t')):
-                        state.found_ws()
+                        state.found_ws_end()
                         self.ui.note('%s (%i): trailing whitespace\n' % (file, num))
 
                         line = line.expandtabs(self.tab_size)
@@ -188,7 +193,7 @@ class CheckFiles(object):
                         self.ui.note('  %s\n  %s\n' % (line, line_show))
 
                     elif '\t' in line:
-                        state.found_tab()
+                        state.found_ws_begin()
                         self.ui.note('%s (%i): tab character(s)\n' % (file, num))
 
                         line_show = ''.join(tab_indicator if c == '\t' else ' ' for c in line)
