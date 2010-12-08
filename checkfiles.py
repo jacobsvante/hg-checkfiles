@@ -158,7 +158,7 @@ class CheckFiles(object):
                             file = None
                     elif label == 'diff.hunk':
                         hunk = chunk
-                    elif file and label == 'diff.trailingwhitespace' and lastlabel == 'diff.inserted':
+                    elif file and label == 'diff.trailingwhitespace' and lastlabel == 'diff.inserted' and chunk != '\r':
                         state.found_ws()
                         self.ui.note('%s: trailing whitespace in %s\n' % (file, hunk))
                     elif file and label == 'diff.inserted' and '\t' in chunk:
