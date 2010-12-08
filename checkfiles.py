@@ -210,7 +210,7 @@ class CheckFiles(object):
 
         for file in filter(self.is_relevant, self.ctx.files()):
             lines = self.ctx[file].data().splitlines()
-            if not any(line.isspace() or '\t' in line or line.endswith(' ') for line in lines):
+            if not any(line.isspace() or '\t' in line or line.endswith((' ', '\t')) for line in lines):
                 self.ui.note('checkfiles: %s ok\n' % file)
                 continue
 
