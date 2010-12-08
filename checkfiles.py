@@ -209,7 +209,10 @@ class CheckFiles(object):
         import os.path
 
         for file in filter(self.is_relevant, self.ctx.files()):
-            lines = self.ctx[file].data().splitlines()
+            data = self.ctx[file].data()
+            lines = data.splitlines()
+            nl_at_eof = data.endswith('\n')
+            
             if not any(line.isspace() or '\t' in line or line.endswith((' ', '\t')) for line in lines):
                 self.ui.note('checkfiles: %s ok\n' % file)
                 continue
@@ -220,9 +223,10 @@ class CheckFiles(object):
                 def fixline():
                     for line in lines:
                         yield line.rstrip().expandtabs(self.tab_size)
-                        yield '\n'
 
-                fileobj.writelines(fixline())
+                fileobj.writelines('\n'.join(fixline()))
+                if nl_at_eof:
+                    fileobj.write('\n')
 
 ################################################################################################
 
