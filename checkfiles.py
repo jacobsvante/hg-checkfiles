@@ -76,9 +76,9 @@ class CheckFiles(object):
         self.tab_size = int(ui.config('checkfiles', 'tab_size', default='4'))
 
         if self.checked_exts == '""':
-            self.ui.debug('checkfiles: checked extensions: %s\n' % ' '.join(self.checked_exts))
-        else:
             self.ui.debug('checkfiles: checked extensions: (all text files)\n')
+        else:
+            self.ui.debug('checkfiles: checked extensions: %s\n' % ' '.join(self.checked_exts))
 
         self.ui.debug('checkfiles: ignored extensions: %s\n' % ' '.join(self.ignored_exts))
         self.ui.debug('checkfiles: ignored files: %s\n' % ' '.join(self.ignored_files))
