@@ -17,7 +17,7 @@ fixup_hook: automatically fixes any problematic files before commit. Useful in p
              If you're not comfortable with this kind of magic, use the check_hook and
              manually run the command with the --fixup option.
 
-== The command ==
+== The commands ==
 
 hg checkfiles [options]
 
@@ -28,13 +28,17 @@ checks changed files in the working directory for tabs or trailing whitespace
     - --debug shows settings and details about each file considered for checking
 
     If problems are found, the command returns 1, otherwise 0.
+
+hg fixwhitespace [options]
+
+Replaces tabs -> spaces and removes trailing whitespace
+
     If --fixup is given, the return value is always 0 (unless an error occurs).
 
 options:
 
- -f --fixup          fix files by replacing tabs and removing trailing whitespace
  -t --tabsize VALUE  set the tab length (default: 4)
-
+    --all            fix all files in working directory, not just the changes ones
 
 == Example usage ==
 
@@ -62,10 +66,16 @@ from mercurial import cmdutil, patch
 import re
 
 class CheckFiles(object):
-    def __init__(self, ui, repo, ctx):
+    def __init__(self, ui, repo, ctx, opts = {}):
         self.ctx = ctx
         self.ui = ui
         self.repo = repo
+
+        if opts['all']:
+            modified, added, removed, deleted, unknown, ignored, clean = repo.status(clean=True)
+            self.files = modified + added + clean # we can't get filecontext for unknown files
+        else:
+            self.files = ctx.files()
 
         self.checked_exts = ui.configlist('checkfiles', 'checked_exts',
             default='""')
@@ -75,6 +85,9 @@ class CheckFiles(object):
         self.check_diffs = ui.configbool('checkfiles', 'check_diffs')
         self.tab_size = int(ui.config('checkfiles', 'tab_size', default='4'))
 
+        if 'tabsize' in opts:
+            self.tab_size = int(opts['tabsize'])
+
         if self.checked_exts == '""':
             self.ui.debug('checkfiles: checked extensions: (all text files)\n')
         else:
@@ -83,6 +96,8 @@ class CheckFiles(object):
         self.ui.debug('checkfiles: ignored extensions: %s\n' % ' '.join(self.ignored_exts))
         self.ui.debug('checkfiles: ignored files: %s\n' % ' '.join(self.ignored_files))
         self.ui.debug('checkfiles: check diffs only: %r\n' % self.check_diffs)
+
+        self.ui.debug('checkfiles: considering files:\n  %s\n' % '\n  '.join(self.files))
 
     def is_relevant(self, file):
         if file in self.ignored_files:
@@ -174,7 +189,7 @@ class CheckFiles(object):
             else:
                 self.ui.note('checkfiles: skipping merge changeset\n')
         else:
-            for file in filter(self.is_relevant, self.ctx.files()):
+            for file in filter(self.is_relevant, self.files):
                 self.ui.debug('checkfiles: checking %s ...\n' % file)
                 fctx = self.ctx[file]
 
@@ -213,7 +228,7 @@ class CheckFiles(object):
     def fixup(self):
         import os.path
 
-        for file in filter(self.is_relevant, self.ctx.files()):
+        for file in filter(self.is_relevant, self.files):
             data = self.ctx[file].data()
             lines = data.splitlines()
             nl_at_eof = data.endswith('\n')
@@ -269,7 +284,7 @@ def fixup_hook(ui, repo, hooktype, **kwargs):
     cf.fixup()
     return False
 
-def checkfiles_cmd(ui, repo, **opts):
+def check_cmd(ui, repo, **opts):
     '''checks changed files in the working directory for tabs or trailing whitespace
 
     - --verbose shows the location of offending characters in each line
@@ -277,25 +292,35 @@ def checkfiles_cmd(ui, repo, **opts):
     - --debug shows settings and details about each file considered for checking
 
     If problems are found, the command returns 1, otherwise 0.
-    If --fixup is given, the return value is always 0 (unless an error occurs).
     '''
 
-    cf = CheckFiles(ui, repo, repo[None])
-    cf.tab_size = int(opts['tabsize'])
+    ui.note('checkfiles: checking %s files for tabs or trailing whitespace...\n'
+             % ('all' if opts['all'] else 'modified'))
 
-    if opts['fixup']:
-        ui.note('checkfiles: removing tabs and/or trailing whitespace in changed files...\n')
-        cf.fixup()
-        return 0
-    else:
-        ui.note('checkfiles: checking modified files for tabs or trailing whitespace...\n')
-        return cf.check()
+    cf = CheckFiles(ui, repo, repo[None], opts)
+    return cf.check()
+
+def fixup_cmd(ui, repo, **opts):
+    '''Replaces tabs with spaces and removes trailing whitespace from changed files
+    '''
+
+    ui.note('checkfiles: removing tabs and/or trailing whitespace in %s files...\n'
+             % ('all' if opts['all'] else 'modified'))
+
+    cf = CheckFiles(ui, repo, repo[None], opts)
+    cf.fixup()
+    return 0
 
 ################################################################################################
 
 cmdtable = {
-    'checkfiles': (checkfiles_cmd,
-                     [('f', 'fixup', None, 'fix files by replacing tabs and removing trailing whitespace'),
-                      ('t', 'tabsize', 4, 'set the tab length')],
-                     'hg checkfiles [options]')
+    'checkfiles': (check_cmd,
+                   [('t', 'tabsize', 4, 'set the tab length'),
+                     ('', 'all', None, 'fix all tracked files (not just changed)')],
+                   'hg checkfiles [options]'),
+
+    'fixwhitespace': (fixup_cmd,
+                     [('t', 'tabsize', 4, 'set the tab length'),
+                      ('', 'all', None, 'fix all tracked files (not just changed)')],
+                      'hg fixwhitespace [options]')
 }
