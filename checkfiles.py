@@ -84,6 +84,7 @@ class CheckFiles(object):
         self.ignored_files = ui.configlist('checkfiles', 'ignored_files')
         self.check_diffs = ui.configbool('checkfiles', 'check_diffs')
         self.tab_size = int(ui.config('checkfiles', 'tab_size', default='4'))
+        self.use_spaces = ui.configbool('checkfiles', 'use_spaces', True)
 
         if 'tabsize' in opts:
             self.tab_size = int(opts['tabsize'])
@@ -96,6 +97,7 @@ class CheckFiles(object):
         self.ui.debug('checkfiles: ignored extensions: %s\n' % ' '.join(self.ignored_exts))
         self.ui.debug('checkfiles: ignored files: %s\n' % ' '.join(self.ignored_files))
         self.ui.debug('checkfiles: check diffs only: %r\n' % self.check_diffs)
+        self.ui.debug('checkfiles: use spaces: %r\n' % self.use_spaces)
 
         self.ui.debug('checkfiles: considering files:\n  %s\n' % '\n  '.join(self.files))
 
@@ -135,7 +137,11 @@ class CheckFiles(object):
         return True
 
     def check(self):
-        tab_indicator = '^' * self.tab_size
+        if self.use_spaces:
+            indicator = '^' * self.tab_size
+        else:
+            indicator = '^'
+
         class State:
             def __init__(self, ui):
                 self.ui = ui
@@ -191,9 +197,13 @@ class CheckFiles(object):
                     elif file and label == 'diff.trailingwhitespace' and lastlabel == 'diff.inserted' and chunk != '\r':
                         state.found_ws_end()
                         self.ui.note('%s: trailing whitespace in %s\n' % (file, hunk))
-                    elif file and label == 'diff.inserted' and '\t' in chunk:
+                    elif file and label == 'diff.inserted' and self.is_ws_before_text(chunk[1:]):
                         state.found_ws_begin()
-                        self.ui.note('%s: tab character(s) in %s\n' % (file, hunk))
+                        if self.use_spaces:
+                            self.ui.note('%s: tab character(s) in %s\n' % (file, hunk))
+                        else:
+                            self.ui.note('%s: space(s) before text in %s\n' % (file, hunk))
+
                     lastlabel = label
                 state.endfile(file)
             else:
@@ -217,13 +227,7 @@ class CheckFiles(object):
                         line_show = ' ' * non_ws_len + '^' * (len(line) - non_ws_len)
                         self.ui.note('  %s\n  %s\n' % (line, line_show))
 
-                    elif '\t' in line:
-                        state.found_ws_begin()
-                        self.ui.note('%s (%i): tab character(s)\n' % (file, num))
-
-                        line_show = ''.join(tab_indicator if c == '\t' else ' ' for c in line)
-                        line = line.expandtabs(self.tab_size)
-                        self.ui.note('  %s\n  %s\n' % (line, line_show))
+                    self.detect_ws_before_text(file, num, line, indicator, state)
 
                 state.endfile(file)
 
@@ -242,8 +246,8 @@ class CheckFiles(object):
             data = self.ctx[file].data()
             lines = data.splitlines()
             nl_at_eof = data.endswith('\n')
-            
-            if not any(line.isspace() or '\t' in line or line.endswith((' ', '\t')) for line in lines):
+
+            if not any(line.isspace() or self.is_ws_before_text(line) or line.endswith((' ', '\t')) for line in lines):
                 self.ui.note('checkfiles: %s ok\n' % file)
                 continue
 
@@ -251,12 +255,51 @@ class CheckFiles(object):
 
             with open(os.path.join(self.repo.root, file), 'w') as fileobj:
                 def fixline():
-                    for line in lines:
-                        yield line.rstrip().expandtabs(self.tab_size)
+                    if self.use_spaces:
+                        for line in lines:
+                            yield line.rstrip().expandtabs(self.tab_size)
+                    else:
+                        for line in lines:
+                            match = re.match(r'^(\t*( \t*)+)[^ \t]', line)
+                            if match:
+                                ws = match.group(1)
+                                text = line[len(ws):]
+
+                                yield ws.expandtabs(self.tab_size).replace(' ' * self.tab_size, '\t') + text.rstrip()
+                            else:
+                                yield line.rstrip()
 
                 fileobj.writelines('\n'.join(fixline()))
                 if nl_at_eof:
                     fileobj.write('\n')
+
+    def match_spaces_before_text(self, line):
+        return re.match(r'^\t*( \t*)+[^ \t]', line)
+
+    def is_ws_before_text(self, line):
+        if self.use_spaces:
+            return '\t' in line
+        else:
+            return self.match_spaces_before_text(line)
+
+    def detect_ws_before_text(self, file, num, line, indicator, state):
+        if self.use_spaces:
+            if self.is_ws_before_text(line):
+                state.found_ws_begin()
+                self.ui.note('%s (%i): tab character(s)\n' % (file, num))
+
+                line_show = ''.join(indicator if c == '\t' else ' ' for c in line)
+                line = line.expandtabs(self.tab_size)
+                self.ui.note('  %s\n  %s\n' % (line, line_show))
+        else:
+            match = self.match_spaces_before_text(line)
+            if match:
+                state.found_ws_begin()
+                self.ui.note('%s (%i): space(s) before text\n' % (file, num))
+
+                line = line.expandtabs(self.tab_size)
+                line_show = match.group()[0:-1].replace(' ', indicator).expandtabs(self.tab_size)
+                self.ui.note('  %s\n  %s\n' % (line, line_show))
 
 ################################################################################################
 
