@@ -184,7 +184,8 @@ class CheckFiles(object):
                                                  self.ctx.p1().node(),
                                                  self.ctx.node(),
                                                  cmdutil.match(self.repo)):
-                    self.ui.debug('checkfiles: %s="%s"\n' % (label, chunk))
+                    if len(label) > 0 or chunk != '\n':
+                        self.ui.debug('checkfiles: %s="%s"\n' % (label, chunk))
                     if label == 'diff.file_b':
                         state.endfile(file)
                         file = re.sub(r'^[+][+][+] b/(.+)\t.+$', r'\1', chunk)
