@@ -117,7 +117,17 @@ class CheckFiles(object):
         except LookupError:
             self.ui.debug('checkfiles: skipping %s (deleted)\n' % file)
             return False
+            
+        if fctx == None:
+            self.ui.debug('checkfiles: skipping %s (deleted)\n' % file)
+            return False
 
+        try:
+            data = fctx.data()
+        except:
+            self.ui.debug('checkfiles: skipping %s (deleted)\n' % file)
+            return False
+            
         if '\0' in fctx.data():
             self.ui.debug('checkfiles: skipping %s (binary)\n' % file)
             return False
