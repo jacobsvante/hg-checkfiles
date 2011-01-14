@@ -71,12 +71,6 @@ class CheckFiles(object):
         self.ui = ui
         self.repo = repo
 
-        if 'all' in opts and opts['all']:
-            modified, added, removed, deleted, unknown, ignored, clean = repo.status(clean=True)
-            self.files = modified + added + clean # we can't get filecontext for unknown files
-        else:
-            self.files = ctx.files()
-
         self.checked_exts = ui.configlist('checkfiles', 'checked_exts',
             default='""')
         self.ignored_exts = ui.configlist('checkfiles', 'ignored_exts',
@@ -88,6 +82,13 @@ class CheckFiles(object):
 
         if 'tabsize' in opts:
             self.tab_size = int(opts['tabsize'])
+
+        if 'all' in opts and opts['all']:
+            modified, added, removed, deleted, unknown, ignored, clean = repo.status(clean=True)
+            self.files = modified + added + clean # we can't get filecontext for unknown files
+            self.check_diffs = False
+        else:
+            self.files = ctx.files()
 
         if self.checked_exts == '""':
             self.ui.debug('checkfiles: checked extensions: (all text files)\n')
