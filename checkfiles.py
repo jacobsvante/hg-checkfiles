@@ -71,7 +71,7 @@ class CheckFiles(object):
         self.ui = ui
         self.repo = repo
 
-        if opts['all']:
+        if 'all' in opts and opts['all']:
             modified, added, removed, deleted, unknown, ignored, clean = repo.status(clean=True)
             self.files = modified + added + clean # we can't get filecontext for unknown files
         else:
