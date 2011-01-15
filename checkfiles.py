@@ -53,12 +53,18 @@ precommit.checkfiles = python:/path/to/checkfiles.py:fixup_hook
 [checkfiles]
 # default is all text files
 checked_exts = .c .h .cpp .xml .cs .html .js .css .txt .py .nsi .java .aspx .asp .bat .cmd .glsl
+
 # default is .sln .suo .vcproj .csproj .ui
 ignored_exts = .xslt
 ignored_files = foo/contains_tabs.txt bar/contains_trailing_ws.txt
 tab_size = 4
+
 # to examine only modified lines from check_hook (no effect on fixup_hook or command), use:
 # check_diffs = True
+
+# to replace spaces with tabs (instead of tabs -> spaces), set use_spaces to False
+use_spaces = True
+
 '''
 
 from mercurial.i18n import _
