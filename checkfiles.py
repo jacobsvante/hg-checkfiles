@@ -73,7 +73,6 @@ import re
 
 class CheckFiles(object):
     def __init__(self, ui, repo, ctx, opts = {}):
-        self.ctx = ctx
         self.ui = ui
         self.repo = repo
 
@@ -89,12 +88,10 @@ class CheckFiles(object):
         if 'tabsize' in opts:
             self.tab_size = int(opts['tabsize'])
 
-        if 'all' in opts and opts['all']:
-            modified, added, removed, deleted, unknown, ignored, clean = repo.status(clean=True)
-            self.files = modified + added + clean # we can't get filecontext for unknown files
+        self.opt_all = opts.get('all', False)
+
+        if self.opt_all:
             self.check_diffs = False
-        else:
-            self.files = ctx.files()
 
         if self.checked_exts == '""':
             self.ui.debug('checkfiles: checked extensions: (all text files)\n')
@@ -105,6 +102,18 @@ class CheckFiles(object):
         self.ui.debug('checkfiles: ignored files: %s\n' % ' '.join(self.ignored_files))
         self.ui.debug('checkfiles: check diffs only: %r\n' % self.check_diffs)
         self.ui.debug('checkfiles: use spaces: %r\n' % self.use_spaces)
+
+        if ctx:
+            self.set_changectx(ctx)
+
+    def set_changectx(self, ctx):
+        self.ctx = ctx
+
+        if self.opt_all:
+            modified, added, removed, deleted, unknown, ignored, clean = self.repo.status(clean=True)
+            self.files = modified + added + clean # we can't get filecontext for unknown files
+        else:
+            self.files = ctx.files()
 
         self.ui.debug('checkfiles: considering files:\n  %s\n' % '\n  '.join(self.files))
 
@@ -327,7 +336,7 @@ def check_hook(ui, repo, hooktype, node, **kwargs):
         fail = False
 
         for rev in cmdutil.revrange(repo, ['%s::' % node]):
-            cf.ctx = repo.changectx(rev)
+            cf.set_changectx(repo.changectx(rev))
             fail = cf.check() or fail
 
         return fail
