@@ -57,7 +57,11 @@ def pullrebaseif(orig, ui, repo, *args, **opts):
             del opts['update']
             ui.debug(_('--update and --rebaseif are not compatible, ignoring the update flag\n'))
 
-        cmdutil.bail_if_changed(repo)
+        try:
+		    cmdutil.bailifchanged(repo) # 1.9
+        except AttributeError:
+		    cmdutil.bail_if_changed(repo) # < 1.9
+
         revsprepull = len(repo)
         origpostincoming = commands.postincoming
         def _dummy(*args, **kwargs):
