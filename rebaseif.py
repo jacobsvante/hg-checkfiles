@@ -25,7 +25,7 @@ def rebaseif(ui, repo, **opts):
 
     # temporarly replace merge tool to try automatic rebase
     origmerge = ui.config('ui', 'merge')
-    ui.setconfig('ui', 'merge', 'internal:merge')
+    ui.setconfig('ui', 'merge', 'internal:fail')
 
     import hgext.rebase
 
