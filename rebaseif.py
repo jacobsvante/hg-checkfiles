@@ -31,14 +31,14 @@ def rebaseif(ui, repo, **opts):
 
     try:
         hgext.rebase.rebase(ui, repo)
-        ui.status(_('rebaseif: successful rebase'))
+        ui.status(_('rebaseif: successful rebase\n'))
         return 0
     except:
         hgext.rebase.rebase(ui, repo, abort=True)
     finally:
         ui.setconfig('ui', 'merge', origmerge)
 
-    ui.status(_('rebaseif: failed to rebase, attempting merge'))
+    ui.status(_('rebaseif: failed to rebase, attempting merge\n'))
 
     import mercurial.commands
     mercurial.commands.merge(ui, repo)
@@ -58,9 +58,9 @@ def pullrebaseif(orig, ui, repo, *args, **opts):
             ui.debug(_('--update and --rebaseif are not compatible, ignoring the update flag\n'))
 
         try:
-		    cmdutil.bailifchanged(repo) # 1.9
+            cmdutil.bailifchanged(repo) # 1.9
         except AttributeError:
-		    cmdutil.bail_if_changed(repo) # < 1.9
+            cmdutil.bail_if_changed(repo) # < 1.9
 
         revsprepull = len(repo)
         origpostincoming = commands.postincoming
