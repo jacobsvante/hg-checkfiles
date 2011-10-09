@@ -113,9 +113,7 @@ class CheckFiles(object):
             modified, added, removed, deleted, unknown, ignored, clean = self.repo.status(clean=True)
             self.files = modified + added + clean # we can't get filecontext for unknown files
         else:
-            self.files = ctx.files()
-
-        self.ui.debug('checkfiles: considering files:\n  %s\n' % '\n  '.join(self.files))
+            self.files = ctx.files() if ctx else []
 
     def is_relevant(self, file):
         if file in self.ignored_files:
@@ -153,6 +151,8 @@ class CheckFiles(object):
         return True
 
     def check(self):
+        self.ui.debug('checkfiles: considering files:\n  %s\n' % '\n  '.join(self.files))
+
         if self.use_spaces:
             indicator = '^' * self.tab_size
         else:
@@ -337,11 +337,12 @@ def check_hook(ui, repo, hooktype, node, **kwargs):
         from mercurial import cmdutil
 
         ui.note('checkfiles: checking incoming changes for tabs or trailing whitespace...\n')
-        cf = CheckFiles(ui, repo, None)
+        cf = CheckFiles(ui, repo, repo[None])
         fail = False
 
         for rev in cmdutil.revrange(repo, ['%s::' % node]):
             cf.set_changectx(repo.changectx(rev))
+            cf.files = cf.ctx.files()
             fail = cf.check() or fail
 
         return fail
