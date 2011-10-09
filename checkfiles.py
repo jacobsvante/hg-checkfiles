@@ -198,9 +198,11 @@ class CheckFiles(object):
                 # XXX would be nicer if checked_exts were a proper pattern;
                 # then cmdutil.match would work naturally with it
                 try:
-                    from scmutil import match
+                    from mercurial.scmutil import match
+                    ctx = self.repo[None]
                 except ImportError:
-                    from cmdutil import match
+                    from mercurial.cmdutil import match
+                    ctx = self.repo
 
                 file = None
                 hunk = None
@@ -208,7 +210,7 @@ class CheckFiles(object):
                 for chunk, label in patch.diffui(self.repo,
                                                  self.ctx.p1().node(),
                                                  self.ctx.node(),
-                                                 match(self.repo)):
+                                                 match(ctx)):
                     if len(label) > 0 or chunk != '\n':
                         self.ui.debug('checkfiles: %s="%s"\n' % (label, chunk))
                     if label == 'diff.file_b':
