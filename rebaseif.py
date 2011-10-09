@@ -37,14 +37,14 @@ def rebaseif(ui, repo, **opts):
         import traceback
         traceback.print_exc(e)
         hgext.rebase.rebase(ui, repo, abort=True)
+    finally:
+        ui.setconfig('ui', 'merge', origmerge)
+
 
     ui.status(_('rebaseif: failed to rebase, attempting merge\n'))
 
     import mercurial.commands
     mercurial.commands.merge(ui, repo)
-
-    ui.setconfig('ui', 'merge', origmerge)
-
     return 0
 
 
