@@ -88,6 +88,10 @@ class CheckFiles(object):
         if 'tabsize' in opts:
             self.tab_size = int(opts['tabsize'])
 
+        if opts.get('all', False) and opts.get('diff', False):
+            raise util.Abort("--all and --diff options are mutually exclusive")
+
+        self.check_diffs = opts.get('diff', self.check_diffs)
         self.opt_all = opts.get('all', False)
 
         if self.opt_all:
@@ -392,7 +396,8 @@ def fixup_cmd(ui, repo, **opts):
 cmdtable = {
     'checkfiles': (check_cmd,
                    [('t', 'tabsize', 4, 'set the tab length'),
-                     ('', 'all', None, 'fix all tracked files (not just changed)')],
+                     ('', 'all', None, 'check all tracked files (not just changed)'),
+                     ('', 'diff', None, 'check only diff lines (not entire file)')],
                    'hg checkfiles [options]'),
 
     'fixwhitespace': (fixup_cmd,
