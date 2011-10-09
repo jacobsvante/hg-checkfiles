@@ -193,13 +193,18 @@ class CheckFiles(object):
             if len(self.ctx.parents()) == 1:
                 # XXX would be nicer if checked_exts were a proper pattern;
                 # then cmdutil.match would work naturally with it
+                try:
+                    from scmutil import match
+                except ImportError:
+                    from cmdutil import match
+
                 file = None
                 hunk = None
                 lastlabel = None
                 for chunk, label in patch.diffui(self.repo,
                                                  self.ctx.p1().node(),
                                                  self.ctx.node(),
-                                                 cmdutil.match(self.repo)):
+                                                 match(self.repo)):
                     if len(label) > 0 or chunk != '\n':
                         self.ui.debug('checkfiles: %s="%s"\n' % (label, chunk))
                     if label == 'diff.file_b':
