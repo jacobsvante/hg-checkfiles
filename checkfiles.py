@@ -340,13 +340,17 @@ def check_hook(ui, repo, hooktype, node, **kwargs):
         return cf.check()
 
     elif hooktype == 'pretxnchangegroup':
-        from mercurial import cmdutil
+        try:
+            from mercurial.scmutil import revrange
+        except ImportError:
+            # 1.8 and earlier
+            from mercurial.cmdutil import revrange
 
         ui.note('checkfiles: checking incoming changes for tabs or trailing whitespace...\n')
         cf = CheckFiles(ui, repo, repo[None])
         fail = False
 
-        for rev in cmdutil.revrange(repo, ['%s::' % node]):
+        for rev in revrange(repo, ['%s::' % node]):
             cf.set_changectx(repo.changectx(rev))
             cf.files = cf.ctx.files()
             fail = cf.check() or fail
