@@ -39,6 +39,7 @@ options:
 
  -t --tabsize VALUE  set the tab length (default: 4)
     --all            fix all files in working directory, not just the changes ones
+    --diff           fix only modified lines!
 
 == Example usage ==
 
@@ -61,8 +62,11 @@ ignored_files = foo/contains_tabs.txt bar/contains_trailing_ws.txt
 ignored_patterns = res/.*
 tab_size = 4
 
-# to examine only modified lines from check_hook (no effect on fixup_hook or command), use:
+# to examine only modified lines from check_hook, use:
 # check_diffs = True
+
+# to fix only modified lines from fixup_hook, use:
+# fixup_diff = True
 
 # to replace spaces with tabs (instead of tabs -> spaces), set use_spaces to False
 use_spaces = True
@@ -72,6 +76,8 @@ use_spaces = True
 from mercurial.i18n import _
 from mercurial import cmdutil, patch
 import re
+
+hunk_re = re.compile('@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
 
 class CheckFiles(object):
     def __init__(self, ui, repo, ctx, opts = {}):
@@ -85,6 +91,7 @@ class CheckFiles(object):
         self.ignored_files = ui.configlist('checkfiles', 'ignored_files')
         self.ignored_patterns = ui.configlist('checkfiles', 'ignored_patterns')
         self.check_diffs = ui.configbool('checkfiles', 'check_diffs')
+        self.fixup_diffs = ui.configbool('checkfiles', 'fixup_diffs')
         self.tab_size = int(ui.config('checkfiles', 'tab_size', default='4'))
         self.use_spaces = ui.configbool('checkfiles', 'use_spaces', True)
 
@@ -95,10 +102,12 @@ class CheckFiles(object):
             raise util.Abort("--all and --diff options are mutually exclusive")
 
         self.check_diffs = opts.get('diff', self.check_diffs)
+        self.fixup_diffs = opts.get('diff', self.fixup_diffs)
         self.opt_all = opts.get('all', False)
 
         if self.opt_all:
             self.check_diffs = False
+            self.fixup_diffs = False
 
         if self.checked_exts == '""':
             self.ui.debug('checkfiles: checked extensions: (all text files)\n')
@@ -278,27 +287,26 @@ class CheckFiles(object):
 
         return state.filecount > 0
 
-    def fixup(self):
+    def fixup_line_num_in_file(self, file, line_num):
         import os.path
 
-        for file in filter(self.is_relevant, self.files):
-            data = self.ctx[file].data()
-            lines = data.splitlines()
-            nl_at_eof = data.endswith('\n')
+        data = self.ctx[file].data()
+        lines = data.splitlines()
+        nl_at_eof = data.endswith('\n')
 
-            if not any(line.isspace() or self.is_ws_before_text(line) or line.endswith((' ', '\t')) for line in lines):
-                self.ui.note('checkfiles: %s ok\n' % file)
-                continue
+        self.ui.status('checkfiles: fixing in %s:%d\n' % (file, line_num))
 
-            self.ui.status('checkfiles: fixing %s\n' % file)
-
-            with open(os.path.join(self.repo.root, file), 'w') as fileobj:
-                def fixline():
-                    if self.use_spaces:
-                        for line in lines:
+        with open(os.path.join(self.repo.root, file), 'w') as fileobj:
+            def fixline():
+                if self.use_spaces:
+                    for num, line in enumerate(lines, 1):
+                        if num == line_num:
                             yield line.rstrip().expandtabs(self.tab_size)
-                    else:
-                        for line in lines:
+                        else:
+                            yield line
+                else:
+                    for num, line in enumerate(lines, 1):
+                        if num == line_num:
                             match = re.match(r'^(\t*( \t*)+)[^ \t]', line)
                             if match:
                                 ws = match.group(1)
@@ -307,10 +315,95 @@ class CheckFiles(object):
                                 yield ws.expandtabs(self.tab_size).replace(' ' * self.tab_size, '\t') + text.rstrip()
                             else:
                                 yield line.rstrip()
+                        else:
+                            yield line
+            fileobj.writelines('\n'.join(fixline()))
+            if nl_at_eof:
+                fileobj.write('\n')
 
-                fileobj.writelines('\n'.join(fixline()))
-                if nl_at_eof:
-                    fileobj.write('\n')
+    def fixup(self):
+        import os.path
+
+        if self.fixup_diffs:
+            if len(self.ctx.parents()) == 1:
+                # XXX would be nicer if checked_exts were a proper pattern;
+                # then cmdutil.match would work naturally with it
+                try:
+                    from mercurial.scmutil import match
+                    ctx = self.repo[None]
+                except ImportError:
+                    from mercurial.cmdutil import match
+                    ctx = self.repo
+
+                file = None
+                hunk = None
+                lastlabel = None
+                line_num = None
+                for chunk, label in patch.diffui(self.repo,
+                                                 self.ctx.p1().node(),
+                                                 self.ctx.node(),
+                                                 match(ctx)):
+
+                    if (len(label) == 0 and chunk != '\n') or label == 'diff.inserted':
+                        line_num += 1
+                    if len(label) > 0 or chunk != '\n':
+                        self.ui.debug('checkfiles: %s="%s"\n' % (label, chunk))
+                    if label == 'diff.file_b':
+                        file = re.sub(r'^[+][+][+] b/(.+)\t.+$', r'\1', chunk)
+                        if self.is_relevant(file):
+                            self.ui.debug('checkfiles: checking %s ...\n' % file)
+                        else:
+                            file = None
+                    elif label == 'diff.hunk':
+                        hunk = chunk
+                        m = re.match(hunk_re, hunk);
+                        (start_a, len_a, start_b, len_b) = m.groups()
+                        self.ui.debug('checkfiles: parsed: %s,  %s, %s, %s\n' % m.groups())
+                        line_num = int(start_b) - 1
+                    elif file and label == 'diff.trailingwhitespace' and lastlabel == 'diff.inserted' and chunk != '\r':
+                        self.ui.note('%s:%d: trailing whitespace in %s\n' % (file, line_num, hunk))
+                        self.fixup_line_num_in_file(file, line_num)
+                    elif file and label == 'diff.inserted' and self.is_ws_before_text(chunk[1:]):
+                        if self.use_spaces:
+                            self.ui.note('%s:%d: tab character(s) in %s\n' % (file, line_num, hunk))
+                        else:
+                            self.ui.note('%s:%d: space(s) before text in %s\n' % (file, line_num,  hunk))
+                        self.fixup_line_num_in_file(file, line_num)
+
+                    lastlabel = label
+            else:
+                self.ui.note('checkfiles: skipping merge changeset\n')
+        else:
+            for file in filter(self.is_relevant, self.files):
+                data = self.ctx[file].data()
+                lines = data.splitlines()
+                nl_at_eof = data.endswith('\n')
+
+                if not any(line.isspace() or self.is_ws_before_text(line) or line.endswith((' ', '\t')) for line in lines):
+                    self.ui.note('checkfiles: %s ok\n' % file)
+                    continue
+
+                self.ui.status('checkfiles: fixing %s\n' % file)
+
+                with open(os.path.join(self.repo.root, file), 'w') as fileobj:
+                    def fixline():
+                        if self.use_spaces:
+                            for line in lines:
+                                yield line.rstrip().expandtabs(self.tab_size)
+                        else:
+                            for line in lines:
+                                match = re.match(r'^(\t*( \t*)+)[^ \t]', line)
+                                if match:
+                                    ws = match.group(1)
+                                    text = line[len(ws):]
+
+                                    yield ws.expandtabs(self.tab_size).replace(' ' * self.tab_size, '\t') + text.rstrip()
+                                else:
+                                    yield line.rstrip()
+
+                    fileobj.writelines('\n'.join(fixline()))
+                    if nl_at_eof:
+                        fileobj.write('\n')
 
     def match_spaces_before_text(self, line):
         return re.match(r'^\t*( \t*)+[^ \t]', line)
@@ -419,6 +512,7 @@ cmdtable = {
 
     'fixwhitespace': (fixup_cmd,
                      [('t', 'tabsize', 4, 'set the tab length'),
-                      ('', 'all', None, 'fix all tracked files (not just changed)')],
+                      ('', 'all', None, 'fix all tracked files (not just changed)'),
+                      ('', 'diff', None, 'fix only diff lines (not entire file)')],
                       'hg fixwhitespace [options]')
 }
