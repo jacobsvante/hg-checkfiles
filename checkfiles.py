@@ -62,6 +62,9 @@ ignored_files = foo/contains_tabs.txt bar/contains_trailing_ws.txt
 ignored_patterns = res/.*
 tab_size = 4
 
+# for check_hook to only check for tabs  (and ignore trailing whitespace) set to True. Default, if not present is False
+check_ignores_trailing_ws = False
+
 # to examine only modified lines from check_hook, use:
 # check_diffs = True
 
@@ -94,6 +97,7 @@ class CheckFiles(object):
         self.fixup_diffs = ui.configbool('checkfiles', 'fixup_diffs')
         self.tab_size = int(ui.config('checkfiles', 'tab_size', default='4'))
         self.use_spaces = ui.configbool('checkfiles', 'use_spaces', True)
+        self.check_ignores_trailing_ws = ui.configbool('checkfiles', 'check_ignores_trailing_ws', False)
 
         if 'tabsize' in opts:
             self.tab_size = int(opts['tabsize'])
@@ -120,6 +124,7 @@ class CheckFiles(object):
         self.ui.debug('checkfiles: check diffs only: %r\n' % self.check_diffs)
         self.ui.debug('checkfiles: use spaces: %r\n' % self.use_spaces)
         self.ui.debug('checkfiles: tab size: %r\n' % self.tab_size)
+        self.ui.debug('checkfiles: ignore trailing ws: %r\n' % self.check_ignores_trailing_ws)
 
         if ctx:
             self.set_changectx(ctx)
@@ -243,8 +248,14 @@ class CheckFiles(object):
                     elif label == 'diff.hunk':
                         hunk = chunk
                     elif file and label == 'diff.trailingwhitespace' and lastlabel == 'diff.inserted' and chunk != '\r':
-                        state.found_ws_end()
-                        self.ui.note('%s: trailing whitespace in %s\n' % (file, hunk))
+                        if self.check_ignores_trailing_ws:
+                            # still check for presence of \t tough
+                            if self.use_spaces and  ('\t' in chunk):
+                                state.found_ws_end()
+                                self.ui.note('%s: trailing tab in %s\n' % (file, hunk))
+                        else:
+                            state.found_ws_end()
+                            self.ui.note('%s: trailing whitespace in %s\n' % (file, hunk))
                     elif file and label == 'diff.inserted' and self.is_ws_before_text(chunk[1:]):
                         state.found_ws_begin()
                         if self.use_spaces:
@@ -263,12 +274,24 @@ class CheckFiles(object):
 
                 for num, line in enumerate(fctx.data().splitlines(), 1):
                     if line.isspace():
-                        state.found_all_ws()
-                        self.ui.note('%s (%i): all whitespace\n' % (file, num))
+                        if self.check_ignores_trailing_ws:
+                            # still check for presence of \t
+                            if self.use_spaces and ('\t' in line):
+                                state.found_all_ws()
+                                self.ui.note('%s (%i): tabs in all whitespace line\n' % (file, num))
+                        else:
+                            state.found_all_ws()
+                            self.ui.note('%s (%i): all whitespace\n' % (file, num))
 
                     elif line.endswith((' ', '\t')):
-                        state.found_ws_end()
-                        self.ui.note('%s (%i): trailing whitespace\n' % (file, num))
+                        if self.check_ignores_trailing_ws:
+                            # still check for presence of \t
+                            if self.use_spaces and ('\t' in line):
+                                state.found_ws_end()
+                                self.ui.note('%s (%i): trailing tabs\n' % (file, num))
+                        else:
+                            state.found_ws_end()
+                            self.ui.note('%s (%i): trailing whitespace\n' % (file, num))
 
                         line = line.expandtabs(self.tab_size)
                         non_ws_len = len(line.rstrip())
