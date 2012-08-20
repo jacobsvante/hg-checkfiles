@@ -458,11 +458,19 @@ class CheckFiles(object):
 
 ################################################################################################
 
-def check_hook(ui, repo, hooktype, node, **kwargs):
+def check_hook(ui, repo, hooktype, **kwargs):
     '''blocks commits/changesets containing tabs or trailing whitespace'''
+
+    if hooktype == 'precommit':
+        ui.note('checkfiles: checking for tabs and/or trailing whitespace in changed files...\n')
+
+        cf = CheckFiles(ui, repo, repo[None])
+        return cf.check()
 
     if hooktype == 'pretxncommit':
         ui.note('checkfiles: checking commit for tabs or trailing whitespace...\n')
+
+        node = kwargs['node']
         cf = CheckFiles(ui, repo, repo.changectx(node))
         return cf.check()
 
@@ -476,6 +484,7 @@ def check_hook(ui, repo, hooktype, node, **kwargs):
         ui.note('checkfiles: checking incoming changes for tabs or trailing whitespace...\n')
         cf = CheckFiles(ui, repo, repo[None])
         fail = False
+        node = kwargs['node']
 
         for rev in revrange(repo, ['%s::' % node]):
             cf.set_changectx(repo.changectx(rev))
