@@ -1,9 +1,9 @@
-# checkfiles.py detect and fix tabs and(or trailing whitespace in commits
+# checkfiles.py detect and fix tabs and/or trailing whitespace in commits
 #
 # Copyright: Marcus Lindblom 2010
 # License: GPLv2+
 
-'''detects (and optionally fixes) tabs and trailing whitespace in committed files
+""" Detects (and optionally fixes) tabs and trailing whitespace in committed files
 
 == The hooks ==
 
@@ -74,11 +74,11 @@ check_ignores_trailing_ws = False
 # to replace spaces with tabs (instead of tabs -> spaces), set use_spaces to False
 use_spaces = True
 
-'''
-
-from mercurial.i18n import _
-from mercurial import cmdutil, patch
+"""
 import re
+from mercurial.i18n import _
+from mercurial import patch, util
+from mercurial.scmutil import match, revrange
 
 hunk_re = re.compile('@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
 
@@ -139,7 +139,6 @@ class CheckFiles(object):
             self.files = ctx.files() if ctx else []
 
     def is_relevant(self, file):
-        import re
 
         if file in self.ignored_files:
             self.ui.debug('checkfiles: ignoring %s (explicit ignore)\n' % file)
@@ -168,7 +167,7 @@ class CheckFiles(object):
             return False
 
         try:
-            data = fctx.data()
+            fctx.data()
         except:
             self.ui.debug('checkfiles: skipping %s (deleted)\n' % file)
             return False
@@ -220,15 +219,7 @@ class CheckFiles(object):
 
         if self.check_diffs:
             if len(self.ctx.parents()) == 1:
-                # XXX would be nicer if checked_exts were a proper pattern;
-                # then cmdutil.match would work naturally with it
-                try:
-                    from mercurial.scmutil import match
-                    ctx = self.repo[None]
-                except ImportError:
-                    from mercurial.cmdutil import match
-                    ctx = self.repo
-
+                ctx = self.repo[None]
                 file = None
                 hunk = None
                 lastlabel = None
@@ -349,15 +340,7 @@ class CheckFiles(object):
 
         if self.fixup_diffs:
             if len(self.ctx.parents()) == 1:
-                # XXX would be nicer if checked_exts were a proper pattern;
-                # then cmdutil.match would work naturally with it
-                try:
-                    from mercurial.scmutil import match
-                    ctx = self.repo[None]
-                except ImportError:
-                    from mercurial.cmdutil import match
-                    ctx = self.repo
-
+                ctx = self.repo[None]
                 file = None
                 hunk = None
                 lastlabel = None
@@ -475,12 +458,6 @@ def check_hook(ui, repo, hooktype, **kwargs):
         return cf.check()
 
     elif hooktype == 'pretxnchangegroup':
-        try:
-            from mercurial.scmutil import revrange
-        except ImportError:
-            # 1.8 and earlier
-            from mercurial.cmdutil import revrange
-
         ui.note('checkfiles: checking incoming changes for tabs or trailing whitespace...\n')
         cf = CheckFiles(ui, repo, repo[None])
         fail = False
@@ -493,7 +470,6 @@ def check_hook(ui, repo, hooktype, **kwargs):
 
         return fail
     else:
-        from mercurial import util
         raise util.Abort(_('checkfiles: check_hook installed as unsupported hooktype: %s') %
                            hooktype)
 
