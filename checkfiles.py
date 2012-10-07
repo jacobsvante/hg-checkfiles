@@ -82,7 +82,9 @@ from mercurial.scmutil import match, revrange
 
 hunk_re = re.compile('@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
 
+
 class CheckFiles(object):
+
     def __init__(self, ui, repo, ctx, opts = {}):
         self.ui = ui
         self.repo = repo
@@ -144,15 +146,15 @@ class CheckFiles(object):
             self.ui.debug('checkfiles: ignoring %s (explicit ignore)\n' % file)
             return False
 
-        if any(map(lambda e:file.endswith(e), self.ignored_exts)):
+        if any(map(lambda e: file.endswith(e), self.ignored_exts)):
             self.ui.debug('checkfiles: ignoring %s (ignored extension)\n' % file)
             return False
 
-        if not any(map(lambda e:file.endswith(e), self.checked_exts)):
+        if not any(map(lambda e: file.endswith(e), self.checked_exts)):
             self.ui.debug('checkfiles: ignoring %s (non-checked extension)\n' % file)
             return False
 
-        if any(map(lambda e:re.search(e, file) is not None, self.ignored_patterns)):
+        if any(map(lambda e: re.search(e, file) is not None, self.ignored_patterns)):
             self.ui.debug('checkfiles: ignoring %s (ignored pattern)\n' % file)
             return False
 
@@ -187,6 +189,7 @@ class CheckFiles(object):
             indicator = '^'
 
         class State:
+
             def __init__(self, ui):
                 self.ui = ui
                 self.ws_begin = False
@@ -194,6 +197,7 @@ class CheckFiles(object):
                 self.all_ws = False
                 self.filecount = 0
                 self.probcount = 0
+
             def endfile(self, file):
                 if file is None:
                     return
@@ -206,15 +210,19 @@ class CheckFiles(object):
                     self.all_ws = False
                 else:
                     self.ui.note('checkfiles: %s: ok\n' % file)
+
             def found_all_ws(self):
                 self.all_ws = True
                 self.probcount += 1
+
             def found_ws_end(self):
                 self.ws_end = True
                 self.probcount += 1
+
             def found_ws_begin(self):
                 self.ws_begin = True
                 self.probcount += 1
+
         state = State(self.ui)
 
         if self.check_diffs:
@@ -241,7 +249,7 @@ class CheckFiles(object):
                     elif file and label == 'diff.trailingwhitespace' and lastlabel == 'diff.inserted' and chunk != '\r':
                         if self.check_ignores_trailing_ws:
                             # still check for presence of \t tough
-                            if self.use_spaces and  ('\t' in chunk):
+                            if self.use_spaces and ('\t' in chunk):
                                 state.found_ws_end()
                                 self.ui.note('%s: trailing tab in %s\n' % (file, hunk))
                         else:
@@ -311,6 +319,7 @@ class CheckFiles(object):
         self.ui.status('checkfiles: fixing in %s:%d\n' % (file, line_num))
 
         with open(os.path.join(self.repo.root, file), 'w') as fileobj:
+
             def fixline():
                 if self.use_spaces:
                     for num, line in enumerate(lines, 1):
@@ -362,7 +371,7 @@ class CheckFiles(object):
                             file = None
                     elif label == 'diff.hunk':
                         hunk = chunk
-                        m = re.match(hunk_re, hunk);
+                        m = re.match(hunk_re, hunk)
                         (start_a, len_a, start_b, len_b) = m.groups()
                         self.ui.debug('checkfiles: parsed: %s,  %s, %s, %s\n' % m.groups())
                         line_num = int(start_b) - 1
@@ -373,7 +382,7 @@ class CheckFiles(object):
                         if self.use_spaces:
                             self.ui.note('%s:%d: tab character(s) in %s\n' % (file, line_num, hunk))
                         else:
-                            self.ui.note('%s:%d: space(s) before text in %s\n' % (file, line_num,  hunk))
+                            self.ui.note('%s:%d: space(s) before text in %s\n' % (file, line_num, hunk))
                         self.fixup_line_num_in_file(file, line_num)
 
                     lastlabel = label
@@ -392,6 +401,7 @@ class CheckFiles(object):
                 self.ui.status('checkfiles: fixing %s\n' % file)
 
                 with open(os.path.join(self.repo.root, file), 'w') as fileobj:
+
                     def fixline():
                         if self.use_spaces:
                             for line in lines:
@@ -442,7 +452,7 @@ class CheckFiles(object):
 ################################################################################################
 
 def check_hook(ui, repo, hooktype, **kwargs):
-    '''blocks commits/changesets containing tabs or trailing whitespace'''
+    """blocks commits/changesets containing tabs or trailing whitespace"""
 
     if hooktype == 'precommit':
         ui.note('checkfiles: checking for tabs and/or trailing whitespace in changed files...\n')
@@ -473,8 +483,9 @@ def check_hook(ui, repo, hooktype, **kwargs):
         raise util.Abort(_('checkfiles: check_hook installed as unsupported hooktype: %s') %
                            hooktype)
 
+
 def fixup_hook(ui, repo, hooktype, **kwargs):
-    '''Removes tabs and/or trailing whitespace from modified files in the working directory'''
+    """Removes tabs and/or trailing whitespace from modified files in the working directory"""
 
     ui.note('checkfiles: removing tabs and/or trailing whitespace in changed files...\n')
 
@@ -482,15 +493,16 @@ def fixup_hook(ui, repo, hooktype, **kwargs):
     cf.fixup()
     return False
 
+
 def check_cmd(ui, repo, **opts):
-    '''checks changed files in the working directory for tabs or trailing whitespace
+    """checks changed files in the working directory for tabs or trailing whitespace
 
     - --verbose shows the location of offending characters in each line
     - --quiet hides filenames and only reports summary information
     - --debug shows settings and details about each file considered for checking
 
     If problems are found, the command returns 1, otherwise 0.
-    '''
+    """
 
     ui.note('checkfiles: checking %s files for tabs or trailing whitespace...\n'
              % ('all' if opts['all'] else 'modified'))
@@ -498,9 +510,10 @@ def check_cmd(ui, repo, **opts):
     cf = CheckFiles(ui, repo, repo[None], opts)
     return cf.check()
 
+
 def fixup_cmd(ui, repo, **opts):
-    '''Replaces tabs with spaces and removes trailing whitespace from changed files
-    '''
+    """Replaces tabs with spaces and removes trailing whitespace from changed files
+    """
 
     ui.note('checkfiles: removing tabs and/or trailing whitespace in %s files...\n'
              % ('all' if opts['all'] else 'modified'))
@@ -522,5 +535,5 @@ cmdtable = {
                      [('t', 'tabsize', 4, 'set the tab length'),
                       ('', 'all', None, 'fix all tracked files (not just changed)'),
                       ('', 'diff', None, 'fix only diff lines (not entire file)')],
-                      'hg fixwhitespace [options]')
+                      'hg fixwhitespace [options]'),
 }
